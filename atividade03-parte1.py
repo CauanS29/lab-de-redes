@@ -1,58 +1,57 @@
 #!/usr/bin/python
 
+import os
 import subprocess
+import socket
 
+SERVIDORNOMEIP = "192.0.2.100"
+SERVIDORNOMEPORTA = 53
+SERVIDOR_WEB_IP = "192.168.1.101"
+SERVIDOR_WEB_PORTA = 80
 
-def start_capture(output_file):
-    command = f"sudo tshark -w {output_file}"
-    capture_process = subprocess.Popen(command, shell=True)
-    return capture_process
+def imprimir_informacoes_servico():
+    print("Servidor de Nome:", SERVIDOR_NOME_IP + ":" + str(SERVIDOR_NOME_PORTA))
+    print("Servidor Web:", SERVIDOR_WEB_IP + ":" + str(SERVIDOR_WEB_PORTA))
 
-def stop_capture(process):
-    process.terminate()
+def iniciar_captura_trafego():
+    nome_arquivo = "captura_trafego_VictorChagas.pcap"
+    print("Iniciando captura de trafego...")
+    os.system("sudo tcpdump -i any -w " + nome_arquivo + " &")
 
-def get_ip_port(service_name):
-    command = f"nslookup {service_name} | grep 'Address:'"
-    result = subprocess.run(command, shell=True, capture_output=True, text=True)
-    lines = result.stdout.strip().split('\n')
-    if len(lines) >= 2:
-        ip = lines[1].split(':')[1].strip()
-        return ip
+def testar_conectividade_host(endereco_ip):
+    resposta = os.system("ping -c 1 " + endereco_ip)
+    if resposta == 0:
+        print("O host", endereco_ip, "está online.")
     else:
-        return None
+        print("O host", endereco_ip, "esta offline.")
 
-def check_service(ip, port):
-    command = f"nc -zv {ip} {port}"
-    result = subprocess.run(command, shell=True, capture_output=True, text=True)
-    return "succeeded" in result.stdout.lower()
+def testar_resposta_servico(endereco_ip, porta, nome_servico):
+    print("Testando servico", nome_servico, "...")
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        resultado = s.connect_ex((endereco_ip, porta))
+        if resultado == 0:
+            print("O servico", nome_servico, "está respondendo corretamente.")
+        else:
+            print("Nao foi possivel conectar ao servico", nome_servico)
+    finally:
+        s.close()
+
+def encerrar_captura_trafego():
+    print("Encerrando captura de trafego...")
+    os.system("sudo pkill tcpdump")
 
 def main():
-    dns_ip = get_ip_port("example.com")
-    web_ip = get_ip_port("example.com")
+    imprimir_informacoes_servico()
+    iniciar_captura_trafego()
 
-    output_file = "traffic_capture.pcap"
-    capture_process = start_capture(output_file)
+    testar_conectividade_host(SERVIDOR_NOME_IP)
+    testar_resposta_servico(SERVIDOR_NOME_IP, SERVIDOR_NOME_PORTA, "de Nome")
 
-    host = "example.com"
-    response = subprocess.run(['ping', '-c', '1', host], stdout=subprocess.PIPE)
-    if response.returncode == 0:
-        print(f"Host {host} esta online.")
-    else:
-        print(f"Host {host} esta offline.")
+    testar_conectividade_host(SERVIDOR_WEB_IP)
+    testar_resposta_servico(SERVIDOR_WEB_IP, SERVIDOR_WEB_PORTA, "Web")
 
-    if dns_ip and check_service(dns_ip, 53):
-        print("Servico de Nome esta respondendo corretamente.")
-    else:
-        print("Falha ao testar o Servico de Nome.")
+    encerrar_captura_trafego()
 
-    if web_ip and check_service(web_ip, 80):
-        print("Servico Web esta respondendo corretamente.")
-    else:
-        print("Falha ao testar o Servico Web.")
-
-    input("Pressione Enter para terminar a captura de trafego...")
-    stop_capture(capture_process)
-    print("Captura de trafego terminada.")
-
-if __name__ == "__main__":
+if __name == "__main":
     main()
